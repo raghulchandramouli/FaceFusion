@@ -53,7 +53,7 @@ def create_app():
             
             # Main content
             with gr.Column(scale=3):
-                gr.Markdown("**1. Select/Upload source face → 2. Choose recording mode → 3. Process (if needed)**")
+                gr.Markdown("**1. Select/Upload source face → 2. Choose recording mode**")
                 
                 with gr.Row():
                     with gr.Column():
@@ -69,13 +69,13 @@ def create_app():
                         record_status = gr.Textbox(label="Recording Status", interactive=False, lines=2)
                         
                         gr.Markdown("---")
-                        process_btn = gr.Button("🎭 Apply Face Swap (Post-Process)", variant="primary", size="lg")
+                        process_btn = gr.Button("🎭 Apply Face Swap", variant="primary", size="lg")
+                        gr.Markdown("*Use this only if you chose 'Record Only' mode*")
                         process_status = gr.Textbox(label="Processing Status", interactive=False, lines=3)
                     
                     with gr.Column():
                         live_preview = gr.Image(label="📹 Live Preview", streaming=True)
-                        recorded_video = gr.Video(label="📹 Recorded Video")
-                        output_video = gr.Video(label="🎬 Face Swapped Video")
+                        recorded_video = gr.Video(label="📹 Recorded/Processed Video")
         
         # Event handlers
         if preloaded_faces:
@@ -85,6 +85,6 @@ def create_app():
         load_btn.click(fn=FaceService.load_source_face, inputs=[source_input], outputs=[status_text])
         record_btn.click(fn=VideoService.record_video_with_preview, outputs=[live_preview, recorded_video, record_status])
         live_swap_btn.click(fn=VideoService.record_with_live_faceswap, outputs=[live_preview, recorded_video, record_status])
-        process_btn.click(fn=VideoService.process_recorded, outputs=[output_video, process_status])
+        process_btn.click(fn=VideoService.process_recorded, outputs=[recorded_video, process_status])
     
     return demo

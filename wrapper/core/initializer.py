@@ -84,7 +84,7 @@ class FaceSwapperInitializer:
     @staticmethod
     def _setup_face_swapper():
         state_manager.init_item('face_swapper_model', 'inswapper_128')
-        state_manager.init_item('face_swapper_pixel_boost', '128x128')
+        state_manager.init_item('face_swapper_pixel_boost', '512x512')
         state_manager.init_item('face_swapper_weight', 0.5)
         state_manager.init_item('processors', ['face_swapper'])
         state_manager.init_item('video_memory_strategy', 'moderate')
