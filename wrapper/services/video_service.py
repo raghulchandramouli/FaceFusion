@@ -22,7 +22,7 @@ class VideoService:
             yield None, None, "❌ Cannot access webcam"
             return
 
-        fps, duration = 10, 10
+        fps, duration = 30, 10  # Increased from 10 to 30 FPS
         ret, frame = app_state.camera.read()
         if not ret:
             yield None, None, "❌ Cannot read from webcam"
@@ -55,7 +55,7 @@ class VideoService:
             status = f"🔴 Recording... {remaining:.1f}s left | Frame: {frame_count}"
 
             yield rgb_frame, None, status
-            time.sleep(0.05)
+            time.sleep(0.01)  # Reduced from 0.05 to 0.01 for higher FPS
 
             if elapsed >= duration:
                 break
@@ -79,7 +79,10 @@ class VideoService:
             yield None, None, "❌ Cannot access webcam"
             return
 
-        fps, duration = 10, 10
+        fps = 10  # Realistic FPS for live face swap
+        duration = 10
+        target_frames = fps * duration  # 100 frames total
+        
         ret, frame = app_state.camera.read()
         if not ret:
             yield None, None, "❌ Cannot read from webcam"
@@ -98,12 +101,11 @@ class VideoService:
         frame_count = 0
         swap_count = 0
 
-        while app_state.is_recording:
+        while app_state.is_recording and frame_count < target_frames:
             ret, frame = app_state.camera.read()
             if not ret:
                 break
 
-            # Apply face swap in real-time
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             swapped_frame = rgb_frame.copy()
             
@@ -118,26 +120,26 @@ class VideoService:
             except Exception as e:
                 print(f"Frame {frame_count} swap error: {e}")
 
-            # Save swapped frame to video
             bgr_frame = cv2.cvtColor(swapped_frame, cv2.COLOR_RGB2BGR)
             out.write(bgr_frame)
             frame_count += 1
 
             elapsed = time.time() - start_time
-            remaining = max(0, duration - elapsed)
-            status = f"🎭 Live Face Swap... {remaining:.1f}s left | Frame: {frame_count} | Swaps: {swap_count}"
+            remaining_frames = target_frames - frame_count
+            estimated_time = remaining_frames * (elapsed / max(frame_count, 1))
+            status = f"🎭 Live Face Swap... {frame_count}/{target_frames} frames | Swaps: {swap_count} | ~{estimated_time:.1f}s left"
 
-            # Yield swapped frame for preview
             yield swapped_frame, None, status
-            time.sleep(0.05)
-
-            if elapsed >= duration:
-                break
+            # No sleep - process as fast as GPU allows
 
         out.release()
         app_state.is_recording = False
+        
+        actual_duration = time.time() - start_time
+        actual_fps = frame_count / actual_duration if actual_duration > 0 else 0
 
-        yield None, app_state.recorded_video_path, f"✅ Live face swap complete! {frame_count} frames | 🎭 {swap_count} swaps"
+        yield None, app_state.recorded_video_path, f"✅ Complete! {frame_count} frames in {actual_duration:.1f}s ({actual_fps:.1f} FPS) | 🎭 {swap_count} swaps"
+
             
     @staticmethod
     def process_recorded():

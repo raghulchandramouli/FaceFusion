@@ -51,14 +51,14 @@ class FaceSwapperInitializer:
             print(f"⚠️ Using CPU: {e}")
         
         state_manager.init_item('execution_device_ids', ['0'])
-        state_manager.init_item('execution_thread_count', 1)
+        state_manager.init_item('execution_thread_count', 4)  # Increased from 1 to 4
     
     @staticmethod
     def _setup_face_detection():
         state_manager.init_item('face_detector_model', 'yolo_face')
         state_manager.init_item('face_detector_angles', [0])
-        state_manager.init_item('face_detector_size', '640x640')
-        state_manager.init_item('face_detector_score', 0.5)
+        state_manager.init_item('face_detector_size', '640x640')  # Reduced from 640x640 for speed
+        state_manager.init_item('face_detector_score', 0.6)  # Increased threshold for fewer false positives
         state_manager.init_item('face_landmarker_model', '2dfan4')
         state_manager.init_item('face_landmarker_score', 0.5)
         state_manager.init_item('face_selector_mode', 'reference')
@@ -73,28 +73,28 @@ class FaceSwapperInitializer:
     
     @staticmethod
     def _setup_face_masking():
-        state_manager.init_item('face_occluder_model', 'xseg_1')
-        state_manager.init_item('face_parser_model', 'bisenet_resnet_34')
-        state_manager.init_item('face_mask_types', ['box'])
+        state_manager.init_item('face_occluder_model', None)  # Disable for speed
+        state_manager.init_item('face_parser_model', None)  # Disable for speed
+        state_manager.init_item('face_mask_types', ['box'])  # Only box mask (fastest)
         state_manager.init_item('face_mask_areas', ['skin', 'left-eyebrow', 'right-eyebrow', 'left-eye', 'right-eye', 'nose', 'mouth', 'upper-lip', 'lower-lip'])
         state_manager.init_item('face_mask_regions', ['skin', 'left-eyebrow', 'right-eyebrow', 'left-eye', 'right-eye', 'nose', 'mouth', 'upper-lip', 'lower-lip'])
-        state_manager.init_item('face_mask_blur', 0.3)
+        state_manager.init_item('face_mask_blur', 0.1)  # Reduced from 0.3 for speed
         state_manager.init_item('face_mask_padding', [0, 0, 0, 0])
     
     @staticmethod
     def _setup_face_swapper():
         state_manager.init_item('face_swapper_model', 'inswapper_128')
-        state_manager.init_item('face_swapper_pixel_boost', '512x512')
+        state_manager.init_item('face_swapper_pixel_boost', '256x256')
         state_manager.init_item('face_swapper_weight', 0.5)
         state_manager.init_item('processors', ['face_swapper'])
-        state_manager.init_item('video_memory_strategy', 'moderate')
+        state_manager.init_item('video_memory_strategy', 'tolerant')  # Changed from 'moderate' to 'tolerant'
         state_manager.init_item('system_memory_limit', 0)
     
     @staticmethod
     def _setup_output_settings():
         state_manager.init_item('trim_frame_start', None)
         state_manager.init_item('trim_frame_end', None)
-        state_manager.init_item('temp_frame_format', 'png')
+        state_manager.init_item('temp_frame_format', 'jpg')  # Changed from 'png' to 'jpg' for speed
         state_manager.init_item('keep_temp', False)
         state_manager.init_item('output_image_quality', 80)
         state_manager.init_item('output_image_scale', 1.0)
