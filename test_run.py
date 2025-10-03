@@ -236,7 +236,7 @@ def process_recorded_video():
     
     print(f"🎭 Processing {total_frames} frames...")
     processed_frames = 0
-    successful_swaps = 0
+    successful_frames = 0
     
     while True:
         ret, frame = cap.read()
@@ -257,7 +257,7 @@ def process_recorded_video():
                         temp_frame = swapped
 
                 output_frame = cv2.cvtColor(temp_frame, cv2.COLOR_RGB2BGR)
-                successful_swaps += 1
+                successful_frames += 1
         
         except Exception as e:
             print(f"Frame {processed_frames} error: {e}")
@@ -268,7 +268,7 @@ def process_recorded_video():
     cap.release()
     out.release()
     
-    status = f"✅ Face swap complete!\n📁 {output_path}\n📊 {processed_frames} frames | 🎭 {successful_swaps} swaps"
+    status = f"✅ Face swap complete!\n📁 {output_path}\n📊 {processed_frames} frames | 🎭 {successful_frames} swaps"
     return output_path, status
 
 with gr.Blocks(title="Record & Face Swap", theme=gr.themes.Soft()) as demo:

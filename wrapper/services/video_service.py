@@ -12,20 +12,20 @@ class VideoService:
     @staticmethod
     def record_video_with_preview():
         if app_state.source_face is None:
-            yield None, None, "Please load a source face first" 
+            yield None, None, "❌ Please load a source face first" 
             return
 
         if not app_state.camera_ready or app_state.camera is None:
             CameraService.initialize()
 
         if not app_state.camera.isOpened():
-            yield None, None, "Cannot access webcam"
+            yield None, None, "❌ Cannot access webcam"
             return
 
         fps, duration = 10, 10
         ret, frame = app_state.camera.read()
         if not ret:
-            yield None, None, "Cannot read from webcam"
+            yield None, None, "❌ Cannot read from webcam"
             return
 
         h, w = frame.shape[:2]
@@ -55,6 +55,7 @@ class VideoService:
             status = f"🔴 Recording... {remaining:.1f}s left | Frame: {frame_count}"
 
             yield rgb_frame, None, status
+            time.sleep(0.05)
 
             if elapsed >= duration:
                 break
@@ -62,7 +63,81 @@ class VideoService:
         out.release()
         app_state.is_recording = False
 
-        yield None, app_state.recorded_video_path, f"Recording complete! {frame_count} frames saved"
+        yield None, app_state.recorded_video_path, f"✅ Recording complete! {frame_count} frames saved"
+
+    @staticmethod
+    def record_with_live_faceswap():
+        """Record video with real-time face swap preview"""
+        if app_state.source_face is None:
+            yield None, None, "❌ Please load a source face first" 
+            return
+
+        if not app_state.camera_ready or app_state.camera is None:
+            CameraService.initialize()
+
+        if not app_state.camera.isOpened():
+            yield None, None, "❌ Cannot access webcam"
+            return
+
+        fps, duration = 10, 10
+        ret, frame = app_state.camera.read()
+        if not ret:
+            yield None, None, "❌ Cannot read from webcam"
+            return
+
+        h, w = frame.shape[:2]
+        timestamp = int(time.time())
+        temp_dir = tempfile.gettempdir()
+        app_state.recorded_video_path = os.path.join(temp_dir, f"live_faceswap_{timestamp}.mp4")
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(app_state.recorded_video_path, fourcc, fps, (w, h))
+
+        app_state.is_recording = True
+        start_time = time.time()
+        frame_count = 0
+        swap_count = 0
+
+        while app_state.is_recording:
+            ret, frame = app_state.camera.read()
+            if not ret:
+                break
+
+            # Apply face swap in real-time
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            swapped_frame = rgb_frame.copy()
+            
+            try:
+                target_faces = get_many_faces([rgb_frame])
+                if target_faces:
+                    for target_face in target_faces:
+                        result = face_swapper.swap_face(app_state.source_face, target_face, swapped_frame)
+                        if result is not None:
+                            swapped_frame = result
+                    swap_count += 1
+            except Exception as e:
+                print(f"Frame {frame_count} swap error: {e}")
+
+            # Save swapped frame to video
+            bgr_frame = cv2.cvtColor(swapped_frame, cv2.COLOR_RGB2BGR)
+            out.write(bgr_frame)
+            frame_count += 1
+
+            elapsed = time.time() - start_time
+            remaining = max(0, duration - elapsed)
+            status = f"🎭 Live Face Swap... {remaining:.1f}s left | Frame: {frame_count} | Swaps: {swap_count}"
+
+            # Yield swapped frame for preview
+            yield swapped_frame, None, status
+            time.sleep(0.05)
+
+            if elapsed >= duration:
+                break
+
+        out.release()
+        app_state.is_recording = False
+
+        yield None, app_state.recorded_video_path, f"✅ Live face swap complete! {frame_count} frames | 🎭 {swap_count} swaps"
             
     @staticmethod
     def process_recorded():
@@ -83,12 +158,12 @@ class VideoService:
 
         timestamp = int(time.time())
         temp_dir = tempfile.gettempdir()
-        output_path = os.path.join(temp_dir, f"processed_{timestamp}.mp4")
+        output_path = os.path.join(temp_dir, f"faceswap_{timestamp}.mp4")
 
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
-        print(f'Processing {total_frames} frames...')
+        print(f"🎭 Processing {total_frames} frames...")
         processed_frames = 0
         successful_frames = 0
 
@@ -117,7 +192,7 @@ class VideoService:
                     successful_frames += 1
 
             except Exception as e:
-                print(f'Error processing frame: {e}')
+                print(f"Frame {processed_frames} error: {e}")
 
             out.write(output_frame)
             processed_frames += 1
@@ -125,4 +200,5 @@ class VideoService:
         cap.release()
         out.release()
 
-        status = f"Face Swap Completes!\n {output_path}\n {processed_frames} frames | {successful_swaps} swaps"
+        status = f"✅ Face swap complete!\n📁 {output_path}\n📊 {processed_frames} frames | 🎭 {successful_frames} swaps"
+        return output_path, status
