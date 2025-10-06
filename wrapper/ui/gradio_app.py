@@ -17,18 +17,27 @@ def get_preloaded_faces():
     
     return faces
 
-def load_preloaded_face(evt: gr.SelectData):
-    """Load selected pre-defined face"""
+def load_and_process_face(evt: gr.SelectData):
+    """Load selected pre-defined face and process it"""
     faces = get_preloaded_faces()
     if evt.index < len(faces):
         img_path = faces[evt.index][0]
-        return Image.open(img_path)
-    return None
+        img = Image.open(img_path)
+        status = FaceService.load_source_face(img)
+        return img, status
+    return None, "❌ Error loading face"
+
+def load_custom_face(image):
+    """Load custom uploaded face"""
+    if image is not None:
+        status = FaceService.load_source_face(image)
+        return image, status
+    return None, ""
 
 def create_app():
     preloaded_faces = get_preloaded_faces()
     
-    # Custom CSS for better styling
+    # Custom CSS - only for header gradient
     custom_css = """
     .main-header {
         text-align: center;
@@ -37,17 +46,6 @@ def create_app():
         border-radius: 10px;
         margin-bottom: 2rem;
         color: white;
-    }
-    .face-gallery {
-        border: 2px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 10px;
-    }
-    .control-panel {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin-bottom: 1rem;
     }
     .preview-panel {
         border: 2px solid #667eea;
@@ -71,11 +69,11 @@ def create_app():
             with gr.Column(scale=1, min_width=250):
                 gr.Markdown("### 🎨 Face Selection")
                 
-                with gr.Accordion("📂 Pre-loaded Faces", open=True, elem_classes="face-gallery"):
+                with gr.Accordion("📂 Pre-loaded Faces", open=True):
                     if preloaded_faces:
                         gallery = gr.Gallery(
                             value=[img_path for img_path, _ in preloaded_faces],
-                            label="Click to select",
+                            label="Click to select (auto-loads)",
                             columns=2,
                             rows=2,
                             height=280,
@@ -86,8 +84,7 @@ def create_app():
                         gr.Markdown("⚠️ No faces found\n\nAdd images to `wrapper/Images/`")
                 
                 with gr.Accordion("📤 Custom Upload", open=False):
-                    custom_upload = gr.Image(type="pil", label="Upload Face", height=200)
-                    upload_btn = gr.Button("✓ Use This Face", variant="secondary", size="sm")
+                    custom_upload = gr.Image(type="pil", label="Upload Face (auto-loads)", height=200)
                 
                 gr.Markdown("---")
                 gr.Markdown(
@@ -102,21 +99,19 @@ def create_app():
             # Main Content Area
             with gr.Column(scale=3):
                 # Source Face Display
-                with gr.Row(elem_classes="control-panel"):
+                with gr.Row():
                     with gr.Column(scale=1):
-                        source_input = gr.Image(type="pil", label="📸 Selected Source Face", height=200)
+                        source_input = gr.Image(type="pil", label="📸 Selected Source Face", height=200, interactive=False)
                     with gr.Column(scale=2):
                         gr.Markdown("### 🚀 Quick Start")
                         gr.Markdown(
                             """
-                            1. **Select a face** from gallery or upload custom
-                            2. **Load the face** using button below
-                            3. **Choose recording mode** (Record Only or Live Swap)
-                            4. **Process** if needed (only for Record Only mode)
+                            1. **Select a face** from gallery or upload custom (auto-loads)
+                            2. **Choose recording mode** (Record Only or Live Swap)
+                            3. **Process** if needed (only for Record Only mode)
                             """
                         )
-                        load_btn = gr.Button("🔄 Load Source Face", variant="primary", size="lg")
-                        status_text = gr.Textbox(label="Status", interactive=False, lines=2, show_label=False)
+                        status_text = gr.Textbox(label="Status", interactive=False, lines=2, show_label=False, placeholder="Select a face to begin...")
                 
                 gr.Markdown("---")
                 
@@ -139,7 +134,7 @@ def create_app():
                         
                         gr.Markdown("### ⚙️ Post-Processing")
                         process_btn = gr.Button("🎭 Apply Face Swap to Recording", variant="primary", size="lg")
-                        gr.Markdown("*Only use if you chose 'Record Only' mode*", elem_classes="text-muted")
+                        gr.Markdown("*Only use if you chose 'Record Only' mode*")
                         process_status = gr.Textbox(label="Processing Status", interactive=False, lines=2)
                 
                 # Preview and Output
@@ -160,16 +155,15 @@ def create_app():
                 <div style='text-align: center; color: #666;'>
                     <p>⚡ Powered by FaceFusion | 🎮 GPU Accelerated (DirectML) | 🚀 Optimized for RTX 5060 Ti</p>
                 </div>
-                """,
-                elem_classes="footer"
+                """
             )
         
-        # Event handlers
+        # Event handlers - Auto-load faces when selected
         if preloaded_faces:
-            gallery.select(fn=load_preloaded_face, outputs=[source_input])
+            gallery.select(fn=load_and_process_face, outputs=[source_input, status_text])
         
-        upload_btn.click(fn=lambda x: x, inputs=[custom_upload], outputs=[source_input])
-        load_btn.click(fn=FaceService.load_source_face, inputs=[source_input], outputs=[status_text])
+        custom_upload.change(fn=load_custom_face, inputs=[custom_upload], outputs=[source_input, status_text])
+        
         record_btn.click(fn=VideoService.record_video_with_preview, outputs=[live_preview, recorded_video, record_status])
         live_swap_btn.click(fn=VideoService.record_with_live_faceswap, outputs=[live_preview, recorded_video, record_status])
         process_btn.click(fn=VideoService.process_recorded, outputs=[recorded_video, process_status])
