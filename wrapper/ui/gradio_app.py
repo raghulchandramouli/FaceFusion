@@ -60,7 +60,7 @@ def create_app():
             gr.Markdown(
                 """
                 # 🎭 FaceFusion Live
-                ### Real-time Face Swap with GPU Acceleration
+                ### Real-time Face Swap & DeepFake Detection
                 """
             )
         
@@ -120,8 +120,9 @@ def create_app():
                     with gr.Column():
                         gr.Markdown("### 🎬 Recording Controls")
                         with gr.Row():
-                            record_btn = gr.Button("📹 Record Only (30 FPS)", variant="secondary", size="lg", scale=1)
-                            live_swap_btn = gr.Button("🎭 Live Face Swap (10 FPS)", variant="primary", size="lg", scale=1)
+                            record_btn = gr.Button("📹 Record Only", variant="secondary", size="lg", scale=1)
+                            live_swap_btn = gr.Button("🎭 Live Face Swap (30 FPS)", variant="primary", size="lg", scale=1)
+
                         
                         record_status = gr.Textbox(
                             label="Recording Status", 

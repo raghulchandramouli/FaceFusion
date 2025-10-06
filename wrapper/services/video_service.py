@@ -79,7 +79,7 @@ class VideoService:
             yield None, None, "❌ Cannot access webcam"
             return
 
-        fps = 10  # Realistic FPS for live face swap
+        fps = 30 # Realistic FPS for live face swap
         duration = 10
         target_frames = fps * duration  # 100 frames total
         
