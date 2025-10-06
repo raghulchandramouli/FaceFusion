@@ -12,20 +12,23 @@ class VideoService:
     @staticmethod
     def record_video_with_preview():
         if app_state.source_face is None:
-            yield None, None, "❌ Please load a source face first" 
+            yield None, None
             return
 
         if not app_state.camera_ready or app_state.camera is None:
             CameraService.initialize()
 
         if not app_state.camera.isOpened():
-            yield None, None, "❌ Cannot access webcam"
+            yield None, None
             return
 
-        fps, duration = 30, 10  # Increased from 10 to 30 FPS
+        fps = 10  # Reduced to 10 FPS for realistic timing
+        duration = 10
+        frame_interval = 1.0 / fps
+        
         ret, frame = app_state.camera.read()
         if not ret:
-            yield None, None, "❌ Cannot read from webcam"
+            yield None, None
             return
 
         h, w = frame.shape[:2]
@@ -38,54 +41,62 @@ class VideoService:
 
         app_state.is_recording = True
         start_time = time.time()
+        next_frame_time = start_time
         frame_count = 0
 
         while app_state.is_recording:
-            ret, frame = app_state.camera.read()
-            if not ret:
-                break
-
-            out.write(frame)
-            frame_count += 1
-
-            elapsed = time.time() - start_time
-            remaining = max(0, duration - elapsed)
-
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            status = f"🔴 Recording... {remaining:.1f}s left | Frame: {frame_count}"
-
-            yield rgb_frame, None, status
-            time.sleep(0.01)  # Reduced from 0.05 to 0.01 for higher FPS
-
+            current_time = time.time()
+            elapsed = current_time - start_time
+            
             if elapsed >= duration:
                 break
+            
+            # Wait until it's time for the next frame
+            if current_time >= next_frame_time:
+                ret, frame = app_state.camera.read()
+                if not ret:
+                    break
+
+                out.write(frame)
+                frame_count += 1
+                next_frame_time += frame_interval
+
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                yield rgb_frame, None
+            else:
+                time.sleep(0.001)  # Small sleep to prevent CPU spinning
 
         out.release()
         app_state.is_recording = False
 
-        yield None, app_state.recorded_video_path, f"✅ Recording complete! {frame_count} frames saved"
+        yield None, app_state.recorded_video_path
+
+    @staticmethod
+    def stop_recording():
+        """Stop Recording Immediately"""
+        app_state.is_recording = False
 
     @staticmethod
     def record_with_live_faceswap():
         """Record video with real-time face swap preview"""
         if app_state.source_face is None:
-            yield None, None, "❌ Please load a source face first" 
+            yield None, None
             return
 
         if not app_state.camera_ready or app_state.camera is None:
             CameraService.initialize()
 
         if not app_state.camera.isOpened():
-            yield None, None, "❌ Cannot access webcam"
+            yield None, None
             return
 
-        fps = 30 # Realistic FPS for live face swap
+        fps = 10  # Reduced to 10 FPS for realistic timing
         duration = 10
-        target_frames = fps * duration  # 100 frames total
+        frame_interval = 1.0 / fps
         
         ret, frame = app_state.camera.read()
         if not ret:
-            yield None, None, "❌ Cannot read from webcam"
+            yield None, None
             return
 
         h, w = frame.shape[:2]
@@ -98,60 +109,63 @@ class VideoService:
 
         app_state.is_recording = True
         start_time = time.time()
+        next_frame_time = start_time
         frame_count = 0
         swap_count = 0
 
-        while app_state.is_recording and frame_count < target_frames:
-            ret, frame = app_state.camera.read()
-            if not ret:
-                break
-
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            swapped_frame = rgb_frame.copy()
+        while app_state.is_recording:
+            current_time = time.time()
+            elapsed = current_time - start_time
             
-            try:
-                target_faces = get_many_faces([rgb_frame])
-                if target_faces:
-                    for target_face in target_faces:
-                        result = face_swapper.swap_face(app_state.source_face, target_face, swapped_frame)
-                        if result is not None:
-                            swapped_frame = result
-                    swap_count += 1
-            except Exception as e:
-                print(f"Frame {frame_count} swap error: {e}")
+            if elapsed >= duration:
+                break
+            
+            # Wait until it's time for the next frame
+            if current_time >= next_frame_time:
+                ret, frame = app_state.camera.read()
+                if not ret:
+                    break
 
-            bgr_frame = cv2.cvtColor(swapped_frame, cv2.COLOR_RGB2BGR)
-            out.write(bgr_frame)
-            frame_count += 1
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                swapped_frame = rgb_frame.copy()
+                
+                try:
+                    target_faces = get_many_faces([rgb_frame])
+                    if target_faces:
+                        for target_face in target_faces:
+                            result = face_swapper.swap_face(app_state.source_face, target_face, swapped_frame)
+                            if result is not None:
+                                swapped_frame = result
+                        swap_count += 1
+                except Exception as e:
+                    print(f"Frame {frame_count} swap error: {e}")
 
-            elapsed = time.time() - start_time
-            remaining_frames = target_frames - frame_count
-            estimated_time = remaining_frames * (elapsed / max(frame_count, 1))
-            status = f"🎭 Live Face Swap... {frame_count}/{target_frames} frames | Swaps: {swap_count} | ~{estimated_time:.1f}s left"
+                bgr_frame = cv2.cvtColor(swapped_frame, cv2.COLOR_RGB2BGR)
+                out.write(bgr_frame)
+                frame_count += 1
+                next_frame_time += frame_interval
 
-            yield swapped_frame, None, status
-            # No sleep - process as fast as GPU allows
+                yield swapped_frame, None
+            else:
+                time.sleep(0.001)  # Small sleep to prevent CPU spinning
 
         out.release()
         app_state.is_recording = False
-        
-        actual_duration = time.time() - start_time
-        actual_fps = frame_count / actual_duration if actual_duration > 0 else 0
 
-        yield None, app_state.recorded_video_path, f"✅ Complete! {frame_count} frames in {actual_duration:.1f}s ({actual_fps:.1f} FPS) | 🎭 {swap_count} swaps"
+        yield None, app_state.recorded_video_path
 
-            
+
     @staticmethod
     def process_recorded():
         if app_state.recorded_video_path is None:
-            return None, "❌ No recorded video found"
+            return None
         
         if app_state.source_face is None:
-            return None, "❌ No source face loaded"
+            return None
 
         cap = cv2.VideoCapture(app_state.recorded_video_path)
         if not cap.isOpened():
-            return None, "❌ Error opening recorded video"
+            return None
 
         fps = int(cap.get(cv2.CAP_PROP_FPS)) or 10
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -202,5 +216,5 @@ class VideoService:
         cap.release()
         out.release()
 
-        status = f"✅ Face swap complete!\n📁 {output_path}\n📊 {processed_frames} frames | 🎭 {successful_frames} swaps"
-        return output_path, status
+        print(f"✅ Complete! {processed_frames} frames | {successful_frames} swaps")
+        return output_path
