@@ -8,10 +8,11 @@ from wrapper.ui.gradio_app import create_app
 def run_app():
     demo = create_app()
     demo.launch(
-        share=False,
-        server_name="localhost",
-        server_port=7860,
-        show_error=True
+        share=True,
+        server_name="127.0.0.1",
+        server_port=5000,
+        show_error=True,
+        debug=True
     )
 
 if __name__ == "__main__":

@@ -101,3 +101,5 @@ class FaceSwapperInitializer:
         state_manager.init_item('output_video_fps', None)
         state_manager.init_item('output_video_scale', 1.0)
         state_manager.init_item('output_audio_volume', 100)
+
+
